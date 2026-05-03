@@ -14,7 +14,7 @@ app = Flask(__name__)
 SYMBOL    = "BTCUSDT"
 TIMEFRAMES= ["15m","30m","1h","4h","1d"]
 TF_WEIGHT = {"15m":1,"30m":1.5,"1h":2,"4h":3,"1d":4}
-FAPI_BASE = "https://fapi.binance.com"
+FAPI_BASE = "https://api.binance.com"
 SIGNAL_LOG= "signal_log.json"
 STATS_FILE= "win_stats.json"
 
@@ -69,14 +69,14 @@ def vol_ratio(volumes):
 
 def fetch_futures_price():
     try:
-        r=requests.get(f"{FAPI_BASE}/fapi/v1/ticker/price",
+        r=requests.get(f"{FAPI_BASE}/api/v3/ticker/price",
                        params={"symbol":SYMBOL},timeout=8)
         return float(r.json()["price"])
     except: return None
 
 def fetch_klines(interval, limit=300):
     try:
-        r=requests.get(f"{FAPI_BASE}/fapi/v1/klines",
+        r=requests.get(f"{FAPI_BASE}/api/v3/klines",
                        params={"symbol":SYMBOL,"interval":interval,"limit":limit},
                        timeout=10)
         data=r.json()
@@ -89,18 +89,10 @@ def fetch_klines(interval, limit=300):
     except: return None
 
 def fetch_funding():
-    try:
-        r=requests.get(f"{FAPI_BASE}/fapi/v1/premiumIndex",
-                       params={"symbol":SYMBOL},timeout=8)
-        return float(r.json().get("lastFundingRate",0))*100
-    except: return None
+    return None  # 현물 API는 펀딩비 미지원
 
 def fetch_oi():
-    try:
-        r=requests.get(f"{FAPI_BASE}/fapi/v1/openInterest",
-                       params={"symbol":SYMBOL},timeout=8)
-        return float(r.json().get("openInterest",0))
-    except: return None
+    return None  # 현물 API는 미결제약정 미지원
 
 def analyze_tf(data):
     if not data or len(data["closes"])<50: return None
