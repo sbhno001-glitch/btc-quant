@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080c14">
+<title>BTC 퀀트 신호</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080c14;
+  --surface:#0d1420;
+  --surface2:#111827;
+  --border:#1e2d45;
+  --accent:#00d4ff;
+  --accent2:#0099bb;
+  --long:#00ff88;
+  --long2:#00cc6a;
+  --short:#ff3355;
+  --short2:#cc2244;
+  --neutral:#f0b429;
+  --text:#e2e8f0;
+  --muted:#4a6080;
+  --mono:'Share Tech Mono',monospace;
+  --sans:'Rajdhani',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+
+/* 배경 그리드 */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.03) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;
+}
+
+.container{max-width:480px;margin:0 auto;padding:12px;position:relative;z-index:1}
+
+/* 헤더 */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;margin-bottom:10px;
+  background:var(--surface);
+  border:1px solid var(--border);border-radius:12px;
+}
+.header-left{display:flex;align-items:center;gap:10px}
+.logo{font-family:var(--mono);color:var(--accent);font-size:13px;letter-spacing:2px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--long);
+  animation:pulse 1.5s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.update-time{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.refresh-btn{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;
+  font-family:var(--sans);font-weight:600;letter-spacing:1px;
+  transition:all .2s;
+}
+.refresh-btn:active{background:var(--border);color:var(--text)}
+
+/* 가격 카드 */
+.price-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:16px;margin-bottom:10px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+}
+.price-main{font-family:var(--mono);font-size:28px;font-weight:700;
+  color:var(--accent);letter-spacing:-1px}
+.price-label{font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;font-weight:600}
+.price-meta{text-align:right}
+.funding-val{font-family:var(--mono);font-size:13px;font-weight:700}
+.funding-val.pos{color:var(--short)}
+.funding-val.neg{color:var(--long)}
+.oi-val{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+
+/* 메인 신호 카드 */
+.signal-card{
+  border-radius:14px;padding:20px;margin-bottom:10px;
+  border:2px solid;position:relative;overflow:hidden;
+  transition:all .3s;
+}
+.signal-card::before{
+  content:'';position:absolute;inset:0;opacity:.06;
+  background:radial-gradient(circle at 50% 0%,white,transparent 70%);
+}
+.signal-card.long{background:linear-gradient(135deg,#001a0d,#002a15);border-color:var(--long)}
+.signal-card.short{background:linear-gradient(135deg,#1a0008,#2a0010);border-color:var(--short)}
+.signal-card.neutral{background:linear-gradient(135deg,#1a1500,#2a2000);border-color:var(--neutral)}
+
+.signal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.signal-badge{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--sans);font-size:22px;font-weight:700;letter-spacing:2px;
+}
+.signal-icon{font-size:20px}
+.signal-badge.long{color:var(--long)}
+.signal-badge.short{color:var(--short)}
+.signal-badge.neutral{color:var(--neutral)}
+
+.confidence-ring{position:relative;width:58px;height:58px}
+.confidence-ring svg{transform:rotate(-90deg)}
+.conf-text{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.conf-pct{font-family:var(--mono);font-size:14px;font-weight:700;line-height:1}
+.conf-label{font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px}
+
+/* TP/SL 박스 */
+.tpsl-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.tpsl-box{
+  background:rgba(0,0,0,.3);border-radius:8px;padding:10px 8px;text-align:center;
+  border:1px solid rgba(255,255,255,.06);
+}
+.tpsl-label{font-size:9px;color:var(--muted);letter-spacing:1.5px;font-weight:700;margin-bottom:4px}
+.tpsl-val{font-family:var(--mono);font-size:12px;font-weight:700}
+.tpsl-val.tp{color:var(--long)}
+.tpsl-val.sl{color:var(--short)}
+.tpsl-val.rr{color:var(--accent)}
+
+/* 레버리지 */
+.leverage-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(0,0,0,.3);border-radius:8px;padding:10px 14px;
+  border:1px solid rgba(255,255,255,.06);
+}
+.lev-label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:1px}
+.lev-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--accent)}
+.risk-badge{
+  font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:20px;
+}
+.risk-low{background:rgba(0,255,136,.15);color:var(--long)}
+.risk-mid{background:rgba(240,180,41,.15);color:var(--neutral)}
+.risk-high{background:rgba(255,51,85,.15);color:var(--short)}
+
+/* TF 합의 */
+.tf-agree{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px;margin-bottom:10px;
+}
+.section-title{font-size:10px;color:var(--muted);letter-spacing:2px;font-weight:700;margin-bottom:12px}
+.tf-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tf-item{
+  background:var(--surface2);border-radius:8px;padding:8px 4px;
+  text-align:center;border:1px solid var(--border);transition:all .3s;
+}
+.tf-item.long{border-color:var(--long);background:rgba(0,255,136,.07)}
+.tf-item.short{border-color:var(--short);background:rgba(255,51,85,.07)}
+.tf-item.neutral{border-color:var(--neutral);background:rgba(240,180,41,.07)}
+.tf-name{font-size:9px;color:var(--muted);letter-spacing:1px;font-weight:700;margin-bottom:4px}
+.tf-arrow{font-size:16px;display:block;margin-bottom:2px}
+.tf-arrow.long{color:var(--long)}
+.tf-arrow.short{color:var(--short)}
+.tf-arrow.neutral{color:var(--neutral)}
+.tf-conf{font-family:var(--mono);font-size:10px}
+
+/* 지표 패널 */
+.indicators{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px;margin-bottom:10px;
+}
+.ind-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:7px 0;border-bottom:1px solid rgba(30,45,69,.5);
+}
+.ind-row:last-child{border-bottom:none}
+.ind-name{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px}
+.ind-val{font-family:var(--mono);font-size:12px;font-weight:700}
+.ind-val.green{color:var(--long)}
+.ind-val.red{color:var(--short)}
+.ind-val.yellow{color:var(--neutral)}
+.ind-val.blue{color:var(--accent)}
+
+/* 스코어바 */
+.score-bar-wrap{margin-bottom:10px}
+.score-labels{display:flex;justify-content:space-between;margin-bottom:5px}
+.score-label{font-size:10px;font-weight:700;letter-spacing:1px}
+.score-label.long{color:var(--long)}
+.score-label.short{color:var(--short)}
+.score-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;display:flex}
+.score-fill-l{height:100%;background:var(--long);border-radius:3px 0 0 3px;transition:width .5s}
+.score-fill-s{height:100%;background:var(--short);border-radius:0 3px 3px 0;transition:width .5s}
+
+/* 승률 */
+.winrate{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px;margin-bottom:10px;
+}
+.wr-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid rgba(30,45,69,.5);
+}
+.wr-row:last-child{border-bottom:none}
+.wr-tf{font-size:11px;color:var(--muted);font-weight:600;width:40px}
+.wr-bar-wrap{flex:1;margin:0 10px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.wr-bar{height:100%;border-radius:2px;transition:width .6s}
+.wr-pct{font-family:var(--mono);font-size:11px;font-weight:700;width:36px;text-align:right}
+.wr-sub{font-size:10px;color:var(--muted);width:70px;text-align:right}
+
+/* 최근 신호 */
+.history{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px;margin-bottom:80px;
+}
+.hist-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid rgba(30,45,69,.5);
+}
+.hist-item:last-child{border-bottom:none}
+.hist-dir{font-size:11px;font-weight:700;letter-spacing:1px;width:45px}
+.hist-dir.long{color:var(--long)}
+.hist-dir.short{color:var(--short)}
+.hist-price{font-family:var(--mono);font-size:11px;color:var(--text);flex:1;padding:0 8px}
+.hist-result{font-size:11px;font-weight:700;letter-spacing:1px}
+.hist-result.win{color:var(--long)}
+.hist-result.lose{color:var(--short)}
+.hist-result.pending{color:var(--muted)}
+.hist-time{font-family:var(--mono);font-size:9px;color:var(--muted);width:50px;text-align:right}
+
+/* 로딩 */
+.loading{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:60vh;gap:16px;
+}
+.spinner{
+  width:40px;height:40px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:2px}
+
+/* 카운트다운 바 */
+.countdown-bar{
+  position:fixed;bottom:0;left:0;right:0;height:3px;
+  background:var(--surface2);z-index:100;
+}
+.countdown-fill{
+  height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  transition:width 1s linear;
+}
+
+.error-msg{
+  background:rgba(255,51,85,.1);border:1px solid var(--short);
+  border-radius:10px;padding:14px;text-align:center;
+  font-size:12px;color:var(--short);font-family:var(--mono);
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="app"><div class="loading"><div class="spinner"></div><div class="loading-text">데이터 로딩중...</div></div></div>
+</div>
+<div class="countdown-bar"><div class="countdown-fill" id="cdFill" style="width:100%"></div></div>
+
+<script>
+const TF_LABEL={"15m":"15분","30m":"30분","1h":"1시간","4h":"4시간","1d":"1일"};
+const REFRESH=60;
+let countdown=REFRESH;
+let lastData=null;
+
+function fmt(n){return Number(n).toLocaleString('ko-KR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtSmall(n){return Number(n).toLocaleString('ko-KR',{minimumFractionDigits:1,maximumFractionDigits:1})}
+
+function ringPath(pct,r=22){
+  const c=2*Math.PI*r;
+  return `stroke-dasharray:${c*pct} ${c*(1-pct)}`;
+}
+
+function signalColor(d){
+  if(d==="LONG") return "var(--long)";
+  if(d==="SHORT") return "var(--short)";
+  return "var(--neutral)";
+}
+
+function render(data){
+  const c=data.combined;
+  const d=c.direction;
+  const cardCls=d==="LONG"?"long":d==="SHORT"?"short":"neutral";
+  const icon=d==="LONG"?"▲":d==="SHORT"?"▼":"─";
+  const conf=c.confidence;
+  const ringR=22; const ringC=2*Math.PI*ringR;
+  const riskLv=c.risk<=3?"low":c.risk<=6?"mid":"high";
+  const riskTxt=c.risk<=3?"낮음":c.risk<=6?"중간":"높음";
+
+  // TF 바 섹션
+  let tfItems="";
+  ["15m","30m","1h","4h","1d"].forEach(tf=>{
+    const r=data.tf_results[tf];
+    if(!r||!r.direction){tfItems+=`<div class="tf-item"><div class="tf-name">${TF_LABEL[tf]}</div><span class="tf-arrow neutral">─</span><div class="tf-conf" style="color:var(--muted)">-</div></div>`;return;}
+    const td=r.direction;
+    const tcls=td==="LONG"?"long":td==="SHORT"?"short":"neutral";
+    const tarrow=td==="LONG"?"▲":td==="SHORT"?"▼":"─";
+    tfItems+=`<div class="tf-item ${tcls}">
+      <div class="tf-name">${TF_LABEL[tf]}</div>
+      <span class="tf-arrow ${tcls}">${tarrow}</span>
+      <div class="tf-conf" style="color:${signalColor(td)}">${r.confidence}%</div>
+    </div>`;
+  });
+
+  // 지표 (현재 타임프레임 1h 기준)
+  const ref=data.tf_results["1h"]||{};
+  const rsiV=ref.rsi||"-";
+  const rsiCls=rsiV<40?"green":rsiV>60?"red":"yellow";
+  const macdCls=ref.macd_hist>0?"green":"red";
+  const volCls=ref.vol_r>=1.5?"yellow":"blue";
+
+  // 롱/숏 스코어바 (1h)
+  const lsc=ref.score_long||0; const ssc=ref.score_short||0; const tot=lsc+ssc||1;
+  const lp=Math.round(lsc/tot*100); const sp=Math.round(ssc/tot*100);
+
+  // 승률 rows
+  let wrRows="";
+  ["15m","30m","1h","4h","1d"].forEach(tf=>{
+    const s=data.stats[tf];
+    if(!s){wrRows+=`<div class="wr-row"><div class="wr-tf">${TF_LABEL[tf]}</div><div class="wr-bar-wrap"><div class="wr-bar" style="width:50%;background:var(--muted)"></div></div><div class="wr-pct" style="color:var(--muted)">-</div><div class="wr-sub">-</div></div>`;return;}
+    const wr=s.win_rate; const wc=wr>=55?"var(--long)":wr>=45?"var(--neutral)":"var(--short)";
+    wrRows+=`<div class="wr-row">
+      <div class="wr-tf">${TF_LABEL[tf]}</div>
+      <div class="wr-bar-wrap"><div class="wr-bar" style="width:${wr}%;background:${wc}"></div></div>
+      <div class="wr-pct" style="color:${wc}">${wr}%</div>
+      <div class="wr-sub">${s.total}건</div>
+    </div>`;
+  });
+
+  const fundingVal=data.funding!==null?data.funding:null;
+  const fundingCls=fundingVal>0?"pos":"neg";
+  const fundingStr=fundingVal!==null?`${fundingVal>0?"+":""}${fundingVal.toFixed(4)}%`:"─";
+
+  const tpStr=data.tp?fmt(data.tp):"─";
+  const slStr=data.sl?fmt(data.sl):"─";
+
+  document.getElementById("app").innerHTML=`
+  <div class="header">
+    <div class="header-left">
+      <div class="live-dot"></div>
+      <div class="logo">BTC QUANT</div>
+    </div>
+    <div class="update-time">${data.time}</div>
+    <button class="refresh-btn" onclick="loadData()">↻ 갱신</button>
+  </div>
+
+  <div class="price-card">
+    <div>
+      <div class="price-label">BTCUSDT FUTURES</div>
+      <div class="price-main">$${fmt(data.price)}</div>
+    </div>
+    <div class="price-meta">
+      <div class="price-label" style="text-align:right">펀딩비</div>
+      <div class="funding-val ${fundingCls}">${fundingStr}</div>
+      <div class="oi-val">OI: ${data.oi?fmtSmall(data.oi)+"BTC":"─"}</div>
+    </div>
+  </div>
+
+  <div class="signal-card ${cardCls}">
+    <div class="signal-top">
+      <div class="signal-badge ${cardCls}">
+        <span class="signal-icon">${icon}</span>
+        ${d==="NEUTRAL"?"대기 중":d}
+      </div>
+      <div class="confidence-ring">
+        <svg width="58" height="58" viewBox="0 0 58 58">
+          <circle cx="29" cy="29" r="${ringR}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+          <circle cx="29" cy="29" r="${ringR}" fill="none" stroke="${signalColor(d)}" stroke-width="3"
+            stroke-dasharray="${ringC*conf/100} ${ringC*(1-conf/100)}"
+            stroke-linecap="round"/>
+        </svg>
+        <div class="conf-text">
+          <div class="conf-pct" style="color:${signalColor(d)}">${conf}%</div>
+          <div class="conf-label">신뢰도</div>
+        </div>
+      </div>
+    </div>
+
+    ${d!=="NEUTRAL"?`
+    <div class="tpsl-grid">
+      <div class="tpsl-box">
+        <div class="tpsl-label">익절 TP</div>
+        <div class="tpsl-val tp">${tpStr}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">${d==="LONG"?"+":"─"}${data.tp_pct}%</div>
+      </div>
+      <div class="tpsl-box">
+        <div class="tpsl-label">손절 SL</div>
+        <div class="tpsl-val sl">${slStr}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">${d==="LONG"?"─":"+"}${data.sl_pct}%</div>
+      </div>
+      <div class="tpsl-box">
+        <div class="tpsl-label">손익비</div>
+        <div class="tpsl-val rr">1:${data.rr}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">R:R</div>
+      </div>
+    </div>
+    <div class="leverage-row">
+      <div>
+        <div class="lev-label">추천 레버리지</div>
+        <div class="lev-val">${c.leverage}x</div>
+      </div>
+      <div>
+        <div class="lev-label" style="text-align:right;margin-bottom:4px">위험도 ${c.risk}/10</div>
+        <div class="risk-badge risk-${riskLv}">${riskTxt}</div>
+      </div>
+    </div>`:`
+    <div style="text-align:center;padding:10px 0;font-size:13px;color:var(--neutral);font-weight:600">
+      타임프레임 간 방향성 불일치 → 진입 보류
+    </div>`}
+  </div>
+
+  <div class="tf-agree">
+    <div class="section-title">타임프레임 합의  롱 ${c.agree_long}개 / 숏 ${c.agree_short}개 / 중립 ${c.agree_neutral}개</div>
+    <div class="tf-grid">${tfItems}</div>
+  </div>
+
+  <div class="indicators">
+    <div class="section-title">지표 현황 (1시간봉 기준)</div>
+    <div class="ind-row">
+      <span class="ind-name">RSI (14)</span>
+      <span class="ind-val ${rsiCls}">${rsiV}</span>
+    </div>
+    <div class="ind-row">
+      <span class="ind-name">MACD 히스토</span>
+      <span class="ind-val ${macdCls}">${ref.macd_hist||"─"}</span>
+    </div>
+    <div class="ind-row">
+      <span class="ind-name">EMA 20 / 60</span>
+      <span class="ind-val blue">${ref.ema20?fmt(ref.ema20):"─"} / ${ref.ema60?fmt(ref.ema60):"─"}</span>
+    </div>
+    <div class="ind-row">
+      <span class="ind-name">EMA 120 / 240</span>
+      <span class="ind-val blue">${ref.ema120?fmt(ref.ema120):"─"} / ${ref.ema240?fmt(ref.ema240):"─"}</span>
+    </div>
+    <div class="ind-row">
+      <span class="ind-name">BB 상단 / 하단</span>
+      <span class="ind-val blue">${ref.bb_u?fmt(ref.bb_u):"─"} / ${ref.bb_l?fmt(ref.bb_l):"─"}</span>
+    </div>
+    <div class="ind-row">
+      <span class="ind-name">거래량 비율</span>
+      <span class="ind-val ${volCls}">×${ref.vol_r||"─"}</span>
+    </div>
+    <div style="margin-top:10px">
+      <div class="score-bar-wrap">
+        <div class="score-labels">
+          <span class="score-label long">▲ LONG ${lsc}점</span>
+          <span class="score-label short">SHORT ${ssc}점 ▼</span>
+        </div>
+        <div class="score-track">
+          <div class="score-fill-l" style="width:${lp}%"></div>
+          <div class="score-fill-s" style="width:${sp}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="winrate">
+    <div class="section-title">누적 승률 (백테스트 + 실시간)</div>
+    ${wrRows}
+  </div>
+
+  <div class="history">
+    <div class="section-title">최근 신호 기록</div>
+    <div id="histList"><div style="color:var(--muted);font-size:11px;font-family:var(--mono)">로딩중...</div></div>
+  </div>
+  `;
+
+  loadHistory();
+}
+
+function loadHistory(){
+  fetch("/api/history").then(r=>r.json()).then(log=>{
+    const el=document.getElementById("histList");
+    if(!el) return;
+    if(!log||!log.length){el.innerHTML='<div style="color:var(--muted);font-size:11px;font-family:var(--mono)">기록 없음</div>';return;}
+    const reversed=[...log].reverse();
+    el.innerHTML=reversed.map(e=>{
+      const resCls=e.win===true?"win":e.win===false?"lose":"pending";
+      const resTxt=e.win===true?"✓ 익절":e.win===false?"✗ 손절":"대기중";
+      const t=e.time.slice(5,16).replace("T"," ");
+      return `<div class="hist-item">
+        <div class="hist-dir ${e.direction.toLowerCase()}">${e.direction==="LONG"?"▲ LONG":"▼ SHORT"}</div>
+        <div class="hist-price">$${fmt(e.price)}<br><span style="font-size:9px;color:var(--muted)">${e.leverage}x</span></div>
+        <div class="hist-result ${resCls}">${resTxt}</div>
+        <div class="hist-time">${t}</div>
+      </div>`;
+    }).join("");
+  }).catch(()=>{});
+}
+
+async function loadData(){
+  try{
+    const r=await fetch("/api/signal");
+    if(!r.ok) throw new Error("API 오류");
+    lastData=await r.json();
+    if(lastData.error) throw new Error(lastData.error);
+    render(lastData);
+    countdown=REFRESH;
+  } catch(e){
+    document.getElementById("app").innerHTML=`<div class="error-msg">⚠ 데이터 수집 실패<br>${e.message}<br><br><button onclick="loadData()" style="margin-top:8px;padding:8px 16px;background:var(--surface2);border:1px solid var(--short);color:var(--short);border-radius:8px;font-family:var(--sans);font-size:12px;cursor:pointer">재시도</button></div>`;
+  }
+}
+
+// 카운트다운
+setInterval(()=>{
+  countdown--;
+  const pct=countdown/REFRESH*100;
+  const fill=document.getElementById("cdFill");
+  if(fill) fill.style.width=pct+"%";
+  if(countdown<=0){ countdown=REFRESH; loadData(); }
+},1000);
+
+loadData();
+</script>
+</body>
+</html>
